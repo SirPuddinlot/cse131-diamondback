@@ -119,6 +119,21 @@ pub fn instr_to_dynasm(instr: &Instr, ops: &mut Assembler, label_map: &StdHashMa
                         ; mov [rsp - pos_offset], rax
                     );
                 }
+                // Load from heap: mov rax, [r15 + offset]
+                (Val::Reg(Reg::RAX), Val::RegOffset(Reg::R15, offset)) => {
+                    dynasm!(ops
+                        ; .arch x64
+                        ; mov rax, [r15 + *offset]
+                    );
+                }
+                
+                // Store to heap: mov [r15 + offset], rax
+                (Val::RegOffset(Reg::R15, offset), Val::Reg(Reg::RAX)) => {
+                    dynasm!(ops
+                        ; .arch x64
+                        ; mov [r15 + *offset], rax
+                    );
+                }
                 
                 _ => panic!("Unsupported mov pattern in JIT: {:?} <- {:?}", dest, src),
             }

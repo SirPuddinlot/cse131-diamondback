@@ -5,6 +5,7 @@ pub enum Reg {
     RSP,
     RCX,
     RDI,
+    R15,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +55,7 @@ pub fn val_to_str(v: &Val) -> String {
             Reg::RSP => "rsp".to_string(),
             Reg::RCX => "rcx".to_string(),
             Reg::RDI => "rdi".to_string(),
+            Reg::R15 => "r15".to_string(),
         },
         Val::Imm(n) => format!("{}", n),
         Val::RegOffset(reg, offset) => {
@@ -62,8 +64,9 @@ pub fn val_to_str(v: &Val) -> String {
                 Reg::RSP => "rsp",
                 Reg::RCX => "rcx",
                 Reg::RDI => "rdi",
+                Reg::R15 => "r15",
             };
-            format!("[{} - {}]", reg_str, -offset)
+            format!("[{} - {}]", reg_str, offset)
         }
     }
 }

@@ -75,17 +75,23 @@ pub fn run_repl() -> io::Result<()> {
                     continue;
                 }
                 
-                // Evaluate the expression
-                let start = ops.offset();
-                
-                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    compile_to_jit(&expr, &mut ops, &mut defines);
-                })) {
-                    Ok(_) => {}
+                // USE THE NEW compile_define function
+                let (heap_offset, mut instrs) = match std::panic::catch_unwind(
+                    std::panic::AssertUnwindSafe(|| {
+                        crate::compiler::compile_define(&name, &expr, &defines)
+                    })
+                ) {
+                    Ok(result) => result,
                     Err(_) => {
-                        // println!("Invalid");
                         continue;
                     }
+                };
+                
+                let start = ops.offset();
+                
+                // Emit the instructions
+                for instr in &instrs {
+                    crate::jit::instr_to_dynasm(instr, &mut ops, &std::collections::HashMap::new());
                 }
                 
                 dynasm!(ops ; .arch x64 ; ret);
@@ -101,11 +107,10 @@ pub fn run_repl() -> io::Result<()> {
                 let reader = ops.reader();
                 let buf = reader.lock();
                 let jitted_fn: extern "C" fn() -> i32 = unsafe { mem::transmute(buf.ptr(start)) };
-                let result = jitted_fn();
+                jitted_fn(); // Execute to store the value
                 
-                // Store the result
-                defines = defines.update(name, result);
-                // Don't print anything for define
+                // Store the heap offset (not the value!)
+                defines = defines.update(name, heap_offset);
             }
             ReplEntry::Expr(expr) => {
                 let start = ops.offset();

@@ -20,8 +20,7 @@ pub fn parse_input(input: &str) -> i64 {
                 eprintln!("Input number out of range");
                 std::process::exit(1);
             }
-            
-            num << 1  // Tag as number
+            num << 1  
         }
     }
 }

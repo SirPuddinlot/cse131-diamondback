@@ -13,7 +13,7 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use im::HashMap;
-use dynasmrt::{DynasmApi};
+use dynasmrt::*;
 use std::mem;
 
 use crate::parser::parse_expr;
@@ -100,20 +100,27 @@ fn main() -> std::io::Result<()> {
             }
             
             let mut ops = dynasmrt::x64::Assembler::new().unwrap();
+            
+            let heap: Vec<i64> = vec![0; 128 * 1024]; // 1MB heap
+            let heap_ptr = heap.as_ptr() as i64;
+            
+
             let start = ops.offset();
+
+            dynasm!(ops
+                ; .arch x64
+                ; mov r15, QWORD heap_ptr as _
+            );
             
             compile_to_jit(&expr, &mut ops, &mut HashMap::new());
-            
-            // dynasm!(ops
-            //     ; .arch x64
-            //     ; ret
-            // );
 
             let buf = ops.finalize().unwrap();
             let jitted_fn: extern "C" fn(i64) -> i64 = unsafe { mem::transmute(buf.ptr(start)) };
             
             // eprintln!("\nCalling JIT function with input: {}", input);
             let result_val = jitted_fn(input);
+
+            std::mem::forget(heap);
             
             print_result(result_val);
         }
