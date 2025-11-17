@@ -1,5 +1,4 @@
-(
-    (fun (double x) (+ x x))
+
+(fun (double x) (+ x x))
 
 (double 2)
-)

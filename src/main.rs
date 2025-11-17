@@ -8,6 +8,7 @@ mod repl;
 mod helpers;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use capstone::prelude::*;
 
 use std::env;
 use std::fs::File;
@@ -73,12 +74,13 @@ fn main() -> std::io::Result<()> {
     let trimmed = in_contents.trim();
 
     // Detect if it starts and ends with '(' … ')' (i.e., already a top-level list)
-    let wrapped_source = if trimmed.starts_with('(') && trimmed.ends_with(')') {
-        trimmed.to_string()
-    } else {
-        // Wrap in parentheses
-        format!("({})", trimmed)
-    };
+    let wrapped_source = 
+        if trimmed.starts_with("((") && trimmed.ends_with("))") {
+            trimmed.to_string()
+        } 
+        else {
+            format!("({})", trimmed)
+        };    
 
     let sexp = sexp::parse(&wrapped_source).map_err(|e| {
         std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Parse error: {}", e))
@@ -106,14 +108,22 @@ extern _snek_print
             out_file.write_all(asm_program.as_bytes())?;
         }
         "-e" => {
-            let input_str = if args.len() > 3 { &args[3] } else { "false" };
+            let input_str = 
+                if args.len() > 3 
+                    { &args[3] } 
+                else 
+                    { "false" };
+
             let input = parse_input(input_str);
             
             let mut __ops__ = dynasmrt::x64::Assembler::new().unwrap();
+
             let heap: Vec<i64> = vec![0; 128 * 1024];
+
             let heap_ptr = heap.as_ptr() as i64;
             
             let mut __fun_ctx__ = FunContext::new(&prog.defns);
+
             let mut __label_map__ = std::collections::HashMap::new();
             
             // Compile ONLY the function definitions and error handlers
@@ -186,6 +196,26 @@ extern _snek_print
             );
             
             let buf = __ops__.finalize().unwrap();
+
+            fn disassemble(buf: &[u8]) {
+                let cs = Capstone::new()
+                    .x86()
+                    .mode(capstone::arch::x86::ArchMode::Mode64)
+                    .build()
+                    .unwrap();
+
+                let insns = 
+                    cs.disasm_all(buf, 0x1000).unwrap();
+                for i in insns.iter() {
+                    println!("0x{:x}: {}\t{}", 
+                        i.address(), 
+                        i.mnemonic().unwrap_or(""), 
+                        i.op_str().unwrap_or(""));
+                }
+            }
+            disassemble(&buf);
+
+            
             let jitted_fn: extern "C" fn(i64) -> i64 = unsafe { std::mem::transmute(buf.ptr(start)) };
             let result_val = jitted_fn(input);
             

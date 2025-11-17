@@ -42,6 +42,7 @@ pub enum ReplEntry {
     Expr(Expr),
     Define(String, Box<Expr>),
     Fun(String, Vec<String>, Expr), // Add this variant for function definitions
+    FunDefn(FunDefn),
 }
 
 

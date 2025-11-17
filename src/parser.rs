@@ -9,7 +9,7 @@ pub fn is_keyword(s: &str) -> bool {
         "let" | "add1" | "sub1" | "isnum" | "isbool" | 
         "+" | "-" | "*" | "<" | ">" | ">=" | "<=" | "=" |
         "if" | "block" | "loop" | "break" | "set!" | 
-        "true" | "false" | "input" | "define"
+        "true" | "false" | "input" | "define" | "fun" | "print"
     )
 }
 
@@ -221,30 +221,73 @@ pub fn parse_expr(s: &Sexp) -> Expr {
         }
     }
 }
-
 pub fn parse_repl_entry(s: &Sexp, depth: usize) -> Result<ReplEntry, String> {
     match s {
         Sexp::List(vec) if !vec.is_empty() => {
             if let Sexp::Atom(S(op)) = &vec[0] {
-                if op == "define" {
-                    if depth > 0 {
-                        return Err("Invalid".to_string());
+                match op.as_str() {
+                    "define" => {
+                        if depth > 0 {
+                            return Err("Invalid".to_string());
+                        }
+                        if vec.len() != 3 {
+                            return Err("Invalid: define takes exactly two arguments".to_string());
+                        }
+                        let name = match &vec[1] {
+                            Sexp::Atom(S(s)) => s.clone(),
+                            _ => return Err("Invalid: define name must be identifier".to_string()),
+                        };
+                        let expr = parse_expr(&vec[2]);
+                        return Ok(ReplEntry::Define(name, Box::new(expr)));
                     }
-                    if vec.len() != 3 {
-                        return Err("Invalid: define takes exactly two arguments".to_string());
+                    "fun" => {
+                        if depth > 0 {
+                            return Err("Invalid".to_string());
+                        }
+                        if vec.len() != 3 {
+                            return Err("Invalid: fun takes exactly two arguments - parameter list and body".to_string());
+                        }
+                        
+                        // Parse parameter list: (fun (name param1 param2 ...) body)
+                        let params = match &vec[1] {
+                            Sexp::List(param_list) => {
+                                let mut parsed_params = Vec::new();
+                                for param in param_list {
+                                    match param {
+                                        Sexp::Atom(S(name)) => {
+                                            if is_keyword(name) {
+                                                return Err(format!("Invalid parameter name: {}", name));
+                                            }
+                                            parsed_params.push(name.clone());
+                                        }
+                                        _ => return Err("Invalid: parameter must be identifier".to_string()),
+                                    }
+                                }
+                                if parsed_params.is_empty() {
+                                    return Err("Invalid: function must have at least a name".to_string());
+                                }
+                                parsed_params
+                            }
+                            _ => return Err("Invalid: function parameter list must be a list".to_string()),
+                        };
+                        
+                        // First parameter is function name, rest are actual parameters
+                        let name = params[0].clone();
+                        let actual_params = params[1..].to_vec();
+                        
+                        // Parse body
+                        let body = parse_expr(&vec[2]);
+                        
+                        return Ok(ReplEntry::Fun(name, actual_params, *Box::new(body)));
                     }
-                    let name = match &vec[1] {
-                        Sexp::Atom(S(s)) => s.clone(),
-                        _ => return Err("Invalid: define name must be identifier".to_string()),
-                    };
-                    let expr = parse_expr(&vec[2]);
-                    return Ok(ReplEntry::Define(name, Box::new(expr)));
+                    _ => {} // Not a special form, fall through to expression
                 }
             }
         }
         _ => {}
     }
     
+    // If we get here, it's a regular expression
     Ok(ReplEntry::Expr(parse_expr(s)))
 }
 
@@ -252,7 +295,6 @@ pub fn parse_repl_entry(s: &Sexp, depth: usize) -> Result<ReplEntry, String> {
 // diamondback stuff
 
 pub fn parse_program(s: &Sexp) -> Program {
-    // Wrap in parens if not already a list (for compatibility)
     let list = match s {
         Sexp::List(vec) => vec,
         _ => panic!("Program must be a list of definitions and expression"),

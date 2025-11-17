@@ -1,4 +1,4 @@
-(
+
 (fun (fact n)
 (let
     ((i 1) (acc 1))
@@ -14,4 +14,3 @@
 )
 )
 (fact input)
-)

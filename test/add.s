@@ -7,15 +7,18 @@ our_code_starts_here:
   push rbp
   mov rbp, rsp
   mov [r15 + 0], rdi
-  sub rsp, 16
-  mov rax, 2
-  mov [rbp - 8], rax
-  mov rax, 6
-  mov rcx, rax
-  or rcx, [rbp - 8]
-  test rcx, 1
+  mov rax, 146
+  test rax, 1
   jne error_invalid_argument
-  add rax, [rbp - 8]
+  add rax, 2
+  jo error_overflow
+  test rax, 1
+  jne error_invalid_argument
+  sub rax, 2
+  jo error_overflow
+  test rax, 1
+  jne error_invalid_argument
+  sub rax, 2
   jo error_overflow
   mov rsp, rbp
   pop rbp

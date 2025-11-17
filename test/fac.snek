@@ -1,4 +1,4 @@
-(
+
 (let ((i 1) (acc 1))
   (loop
     (if (> i input)
@@ -6,4 +6,3 @@
       (block
         (set! acc (* acc i))
         (set! i (+ i 1))))))
-)
